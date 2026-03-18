@@ -60,6 +60,7 @@ class PaymentController extends Controller
 
         return view('products.checkout', [
             'product' => $product,
+            'merchantName' => $merchant->merchantName ?? 'Merchant',
             'qr' => $qrImage,
             'qrFormat' => $qrFormat,
             'md5' => $qrResponse->data['md5'] ?? null,
