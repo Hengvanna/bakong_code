@@ -1,421 +1,370 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="checkout-container">
-    <div class="bakong-qr-card">
-        {{-- Red header with KHQR logo --}}
-        <div class="card-red-header">
-            <span class="khqr-header-logo">KHQR</span>
+<div class="khqr-checkout-page">
+    {{-- Main KHQR card --}}
+    <div class="khqr-card" role="region" aria-label="KHQR payment">
+        <div class="khqr-card__header">
+            <span class="khqr-card__header-title">KHQR</span>
         </div>
 
-        <div class="card-content">
-            {{-- Transaction amount: above QR --}}
-            <div class="amount-section">
-                <p class="receiver-label">Receiver name</p>
-                <p class="receiver-name">{{ $merchantName ?? 'Merchant' }}</p>
-                <div class="amount-display">
-                    <span class="amount-value">{{ number_format($product->price) }}</span>
-                    <span class="amount-currency">KHR</span>
+        <div class="khqr-card__body">
+            <div class="khqr-card__receiver">
+                <p class="khqr-card__label">Receiver name</p>
+                <p class="khqr-card__name">{{ $merchantName ?? 'Merchant' }}</p>
+                <div class="khqr-card__amount-row">
+                    <span class="khqr-card__amount-value">{{ number_format($product->price, 0, '.', '') }}</span>
+                    <span class="khqr-card__amount-currency">KHR</span>
                 </div>
             </div>
 
-            {{-- Dashed separator --}}
-            <div class="amount-separator"></div>
+            <div class="khqr-card__rule"></div>
 
-            {{-- QR Code Area with corner brackets --}}
-            <div class="qr-area">
-                <div class="qr-corner qr-corner-tl"></div>
-                <div class="qr-corner qr-corner-tr"></div>
-                <div class="qr-corner qr-corner-bl"></div>
-                <div class="qr-corner qr-corner-br"></div>
-                <div class="qr-code-wrapper">
+            <div class="khqr-card__qr-wrap">
+                <div class="khqr-card__qr-frame">
                     @if ($qr)
-                        @if ($qrFormat === 'svg')
-                            <div class="qr-inner">{!! $qr !!}</div>
+                        @if (($qrFormat ?? null) === 'svg')
+                            <div class="khqr-card__qr-inner">{!! $qr !!}</div>
                         @else
-                            <img src="data:image/png;base64,{{ $qr }}" alt="KHQR Code" class="qr-inner">
+                            <img src="data:image/png;base64,{{ $qr }}" alt="KHQR code" class="khqr-card__qr-inner khqr-card__qr-img">
                         @endif
                     @else
-                        <div class="qr-failed">QR generation failed!</div>
+                        <div class="khqr-card__qr-fail">
+                            <span>Could not show QR</span>
+                            @if (!empty($khqrError))
+                                <small>{{ $khqrError }}</small>
+                            @endif
+                        </div>
                     @endif
                 </div>
             </div>
 
-            {{-- Footer --}}
-            <div class="card-footer">
-                <div class="footer-left">
-                    <span class="member-of">Member of</span>
-                    <div class="khqr-logo">
-                        <span class="khqr-text">KHQR</span>
-                    </div>
+            <div class="khqr-card__footer">
+                <div class="khqr-card__footer-left">
+                    <span class="khqr-card__member">Member of</span>
+                    <span class="khqr-card__brand">KHQR</span>
                 </div>
-                <div class="footer-right">
-                    <div class="red-flourish"></div>
-                </div>
+                <div class="khqr-card__footer-accent" aria-hidden="true"></div>
             </div>
         </div>
 
-        {{-- Bottom red border --}}
-        <div class="card-border card-border-bottom"></div>
+        <div class="khqr-card__bottom-bar" aria-hidden="true"></div>
     </div>
 
-    {{-- Payment info below card --}}
-    <div class="payment-info">
-        <h2>Pay for: {{ $product->name }}</h2>
-        <p class="amount"><strong>{{ number_format($product->price) }} KHR</strong></p>
-        <p class="meta">
-            Generated at: {{ now()->format('Y-m-d H:i:s') }} |
-            Current time: <span id="currentTime"></span>
-        </p>
-        <input type="hidden" id="md5" value="{{ $md5 }}">
-        <h3 id="status">Waiting for payment...</h3>
-        <p id="countdown" class="countdown"></p>
-    </div>
+    {{-- Payment status (QR + amount live on the card above) --}}
+    <section class="khqr-below" aria-label="Payment status">
+
+        <p class="khqr-below__status" id="khqrStatus">Waiting for payment...</p>
+        <p class="khqr-below__hint" id="khqrPollHint" aria-live="polite"></p>
+        <p class="khqr-below__countdown" id="khqrCountdown"></p>
+
+        <input type="hidden" id="md5" value="{{ $md5 ?? '' }}">
+    </section>
 </div>
 
 <style>
-:root {
-    --bakong-red: #E11F26;
-    --bakong-white: #FFFFFF;
-    --text-dark: #333333;
-    --border-gray: #d0d0d0;
-}
+    :root {
+        --khqr-red: #E11F26;
+        --khqr-text: #1a1a1a;
+        --khqr-muted: #6b6b6b;
+        --khqr-border: #d8d8d8;
+    }
 
-.checkout-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    font-family: Arial, Helvetica, sans-serif;
-}
+    .khqr-checkout-page {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 32px 16px 48px;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: #fff;
+        color: var(--khqr-text);
+    }
 
-.bakong-qr-card {
-    position: relative;
-    background: var(--bakong-white);
-    max-width: 340px;
-    border-radius: 4px;
-    overflow: hidden;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 48 48'%3E%3Cpath fill='%23f0f0f0' d='M24 2 L30 18 L46 18 L32 28 L38 44 L24 34 L10 44 L16 28 L2 18 L18 18 Z'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-}
+    /* Card shell */
+    .khqr-card {
+        width: 100%;
+        max-width: 400px;
+        border: 1px solid var(--khqr-border);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    }
 
-.card-red-header {
-    background: var(--bakong-red);
-    padding: 16px 20px;
-    text-align: center;
-    border-radius: 4px 4px 0 0;
-    position: relative;
-}
+    .khqr-card__header {
+        position: relative;
+        background: var(--khqr-red);
+        padding: 18px 20px;
+        text-align: center;
+    }
 
-.card-red-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 40px;
-    height: 40px;
-    background: var(--bakong-white);
-    border-radius: 40px 0 0 0;
-}
+    .khqr-card__header::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 36px;
+        height: 36px;
+        background: #fff;
+        border-radius: 36px 0 0 0;
+    }
 
-.khqr-header-logo {
-    font-size: 24px;
-    font-weight: bold;
-    color: white;
-    letter-spacing: 2px;
-}
+    .khqr-card__header-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: 0.12em;
+    }
 
-.card-border {
-    height: 6px;
-    background: var(--bakong-red);
-}
+    .khqr-card__body {
+        padding: 20px 22px 16px;
+        background-color: #fff;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 48 48'%3E%3Cpath fill='%23e8e8e8' d='M24 4 L28 18 L42 18 L30 26 L36 40 L24 32 L12 40 L18 26 L6 18 L20 18 Z'/%3E%3C/svg%3E");
+        background-repeat: repeat;
+    }
 
-.card-border-top { border-radius: 4px 4px 0 0; }
-.card-border-bottom { border-radius: 0 0 4px 4px; }
+    .khqr-card__label {
+        margin: 0 0 4px;
+        font-size: 0.75rem;
+        color: var(--khqr-muted);
+    }
 
-.card-content {
-    padding: 20px;
-}
+    .khqr-card__name {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--khqr-text);
+    }
 
-.amount-section {
-    padding: 16px 0;
-}
+    .khqr-card__amount-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
 
-.receiver-label {
-    font-size: 12px;
-    color: #999;
-    margin: 0 0 4px 0;
-}
+    .khqr-card__amount-value {
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.02em;
+    }
 
-.receiver-name {
-    font-size: 14px;
-    color: var(--text-dark);
-    margin: 0 0 8px 0;
-}
+    .khqr-card__amount-currency {
+        font-size: 0.9rem;
+        color: var(--khqr-muted);
+        font-weight: 500;
+    }
 
-.amount-display {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-}
+    .khqr-card__rule {
+        margin: 18px 0 20px;
+        border: none;
+        border-top: 2px dashed #c8c8c8;
+    }
 
-.amount-value {
-    font-size: 32px;
-    font-weight: bold;
-    color: var(--text-dark);
-    line-height: 1.2;
-}
+    .khqr-card__qr-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
 
-.amount-currency {
-    font-size: 14px;
-    color: #999;
-    font-weight: normal;
-}
+    .khqr-card__qr-frame {
+        width: 328px;
+        height: 328px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        border-radius: 4px;
+        /* Keeps the QR composited on a flat white tile (body has a pattern). */
+        isolation: isolate;
+    }
 
-.amount-separator {
-    border: none;
-    border-top: 2px dashed var(--border-gray);
-    margin: 0 0 20px 0;
-}
+    .khqr-card__qr-inner,
+    .khqr-card__qr-inner svg {
+        width: 320px;
+        height: 320px;
+        display: block;
+    }
 
-.card-header {
-    text-align: center;
-    margin-bottom: 24px;
-}
+    /* Sharp module edges — default SVG smoothing often breaks wallet camera readers. */
+    .khqr-card__qr-inner svg {
+        shape-rendering: crispEdges;
+    }
 
-.bakong-logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 8px;
-}
+    .khqr-card__qr-img {
+        object-fit: contain;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+    }
 
-.bakong-star {
-    flex-shrink: 0;
-}
+    .khqr-card__qr-fail {
+        text-align: center;
+        color: var(--khqr-red);
+        font-weight: 600;
+        padding: 16px;
+        font-size: 0.9rem;
+    }
 
-.bakong-text {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
+    .khqr-card__qr-fail small {
+        display: block;
+        margin-top: 8px;
+        color: var(--khqr-muted);
+        font-weight: 400;
+        font-size: 0.75rem;
+    }
 
-.bakong-khmer {
-    font-size: 14px;
-    color: var(--bakong-red);
-    font-weight: 600;
-    line-height: 1.2;
-}
+    .khqr-card__footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-top: 8px;
+        position: relative;
+        min-height: 52px;
+    }
 
-.bakong-name {
-    font-size: 22px;
-    font-weight: bold;
-    color: var(--bakong-red);
-    letter-spacing: 1px;
-}
+    .khqr-card__footer-left {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
 
-.tagline {
-    font-size: 14px;
-    color: var(--text-dark);
-    margin: 0;
-    font-weight: 500;
-}
+    .khqr-card__member {
+        font-size: 0.7rem;
+        color: var(--khqr-muted);
+    }
 
-.qr-area {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 24px;
-    margin: 24px 0;
-}
+    .khqr-card__brand {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--khqr-red);
+        letter-spacing: 0.06em;
+    }
 
-.qr-corner {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    border-color: var(--border-gray);
-    border-style: solid;
-    border-width: 0;
-}
+    .khqr-card__footer-accent {
+        position: absolute;
+        right: -8px;
+        bottom: -8px;
+        width: 72px;
+        height: 56px;
+        background: var(--khqr-red);
+        border-radius: 50% 0 12px 0;
+        opacity: 0.95;
+    }
 
-.qr-corner-tl {
-    top: 12px;
-    left: 12px;
-    border-top-width: 3px;
-    border-left-width: 3px;
-    border-radius: 4px 0 0 0;
-}
+    .khqr-card__bottom-bar {
+        height: 6px;
+        background: var(--khqr-red);
+    }
 
-.qr-corner-tr {
-    top: 12px;
-    right: 12px;
-    border-top-width: 3px;
-    border-right-width: 3px;
-    border-radius: 0 4px 0 0;
-}
+    /* Below card */
+    .khqr-below {
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+        margin-top: 28px;
+    }
 
-.qr-corner-bl {
-    bottom: 12px;
-    left: 12px;
-    border-bottom-width: 3px;
-    border-left-width: 3px;
-    border-radius: 0 0 0 4px;
-}
+    .khqr-below__status {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--khqr-red);
+    }
 
-.qr-corner-br {
-    bottom: 12px;
-    right: 12px;
-    border-bottom-width: 3px;
-    border-right-width: 3px;
-    border-radius: 0 0 4px 0;
-}
+    .khqr-below__hint {
+        min-height: 1.25em;
+        font-size: 0.75rem;
+        color: var(--khqr-muted);
+        margin: 0 0 8px;
+        line-height: 1.45;
+        word-break: break-word;
+    }
 
-.qr-code-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 260px;
-    height: 260px;
-    background: white;
-}
-
-.qr-inner {
-    width: 260px;
-    height: 260px;
-    display: block;
-}
-
-.qr-inner svg {
-    width: 260px;
-    height: 260px;
-}
-
-.qr-failed {
-    color: var(--bakong-red);
-    font-weight: 600;
-    text-align: center;
-}
-
-.card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding-top: 16px;
-}
-
-.footer-left {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.member-of {
-    font-size: 11px;
-    color: var(--text-dark);
-}
-
-.khqr-logo .khqr-text {
-    font-size: 18px;
-    font-weight: bold;
-    color: var(--bakong-red);
-    letter-spacing: 1px;
-}
-
-.footer-right {
-    position: relative;
-    width: 80px;
-    height: 60px;
-}
-
-.red-flourish {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--bakong-red);
-    border-radius: 50% 0 0 0;
-    transform: scale(1.5);
-    transform-origin: bottom right;
-}
-
-.payment-info {
-    text-align: center;
-    margin-top: 32px;
-}
-
-.payment-info h2 {
-    font-size: 20px;
-    color: var(--text-dark);
-    margin-bottom: 8px;
-}
-
-.payment-info .amount {
-    font-size: 18px;
-    margin-bottom: 8px;
-}
-
-.payment-info .meta {
-    color: #666;
-    font-size: 12px;
-    margin-bottom: 16px;
-}
-
-.payment-info #status {
-    font-size: 18px;
-    color: var(--bakong-red);
-    margin-bottom: 8px;
-}
-
-.payment-info .countdown {
-    color: #666;
-    font-size: 14px;
-}
+    .khqr-below__countdown {
+        font-size: 0.85rem;
+        color: var(--khqr-muted);
+        margin: 0;
+    }
 </style>
 
 <script>
-// Countdown timer (5 minutes = 300 seconds)
-let timeLeft = 300;
-const countdownElement = document.getElementById('countdown');
+(function () {
+    function pad(n) { return String(n).padStart(2, '0'); }
 
-function updateCountdown() {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    countdownElement.textContent = `Time remaining: ${formattedTime}`;
-
-    if (timeLeft <= 0) {
-        countdownElement.textContent = 'Time expired!';
-        countdownElement.style.color = 'red';
-        clearInterval(countdownInterval);
-    } else {
+    let timeLeft = 300;
+    const countdownEl = document.getElementById('khqrCountdown');
+    function tickCountdown() {
+        if (!countdownEl) return;
+        const m = Math.floor(timeLeft / 60);
+        const s = timeLeft % 60;
+        countdownEl.textContent = 'Time remaining: ' + pad(m) + ':' + pad(s);
+        if (timeLeft <= 0) {
+            countdownEl.textContent = 'Time expired — reload this page for a new QR.';
+            countdownEl.style.color = '#E11F26';
+            clearInterval(countdownTimer);
+            return;
+        }
         timeLeft--;
     }
-}
+    tickCountdown();
+    let countdownTimer = setInterval(tickCountdown, 1000);
 
-const countdownInterval = setInterval(updateCountdown, 1000);
-updateCountdown();
+    const hintEl = document.getElementById('khqrPollHint');
+    const appDebug = @json((bool) config('app.debug'));
 
-setInterval(() => {
-    let md5 = document.getElementById('md5').value;
-
-    fetch(`/verify-transaction?md5=${md5}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data?.transactionStatus === "SUCCESS") {
-                clearInterval(countdownInterval);
-                document.getElementById("status").innerText = "Payment Successful!";
-                countdownElement.textContent = '';
-                setTimeout(() => {
-                    window.location.href = "/payment/result";
-                }, 1500);
+    function friendlyGatewayHint(gateway) {
+        if (!gateway || typeof gateway !== 'object') return '';
+        const code = gateway.responseCode;
+        const msg = (gateway.responseMessage || '').toLowerCase();
+        const notFound = code === 1 || code === '1' || msg.includes('could not be found') || msg.includes('not be found');
+        if (notFound) {
+            return 'No payment recorded yet — complete payment in the Bakong app. This message is normal while waiting.';
+        }
+        if (appDebug) {
+            try {
+                return 'Gateway: ' + JSON.stringify(gateway);
+            } catch (e) {
+                return '';
             }
-        });
-}, 5000);
+        }
+        return '';
+    }
+
+    const pollInterval = setInterval(function () {
+        const input = document.getElementById('md5');
+        const md5v = input ? input.value : '';
+        if (!md5v) {
+            if (hintEl) hintEl.textContent = 'No payment hash — reload this page.';
+            return;
+        }
+
+        const checkPaymentUrl = @json(rtrim(url('/check-payment'), '/')) + '/' + encodeURIComponent(md5v);
+        fetch(checkPaymentUrl)
+            .then(function (res) { return res.json().then(function (data) { return { res: res, data: data }; }); })
+            .then(function (o) {
+                const data = o.data || {};
+                if (!o.res.ok && data.message) {
+                    if (hintEl) hintEl.textContent = data.message;
+                    return;
+                }
+                if (data.status === 'success') {
+                    clearInterval(pollInterval);
+                    clearInterval(countdownTimer);
+                    alert('Payment successful ✅');
+                    window.location.href = @json(route('home'));
+                    return;
+                }
+                if (data.status === 'error' && data.message) {
+                    if (hintEl) hintEl.textContent = data.message;
+                    return;
+                }
+                const friendly = friendlyGatewayHint(data.gateway);
+                if (hintEl) hintEl.textContent = friendly || (appDebug && data.error ? ('Poll: ' + data.error + (data.hint ? ' — ' + data.hint : '')) : '');
+            })
+            .catch(function () { /* ignore */ });
+    }, 3000);
+})();
 </script>
 @endsection
